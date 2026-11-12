@@ -1,0 +1,6 @@
+User-Agent: *
+Allow: /
+Disallow: /api/
+
+Host: https://birdiebash.pro.vn
+Sitemap: https://birdiebash.pro.vn/sitemap.xml
