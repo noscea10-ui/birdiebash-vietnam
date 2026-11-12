@@ -1,350 +1,535 @@
-/**
- * Birdie Bash Vietnam - Skin Studio (vợt + trang phục cosplay)
- * Loaded synchronously BEFORE the game bundle. The bundle calls:
- *   __birdieSkins.skinDef(def)       -> recolored character definition (local player only)
- *   __birdieSkins.frameOpts(def)     -> racket frame material options
- *   __birdieSkins.stringColor(def)   -> racket string color
- *   __birdieSkins.decorate(model, def, helpers) -> adds extra meshes (hats, capes, gems...)
- */
+// ============================================================
+// BIRDIE BASH - MEME & TROLL SKIN STUDIO (BẢN ĐỘC QUYỀN)
+// Cầm Ổ Bánh Mì, Bé Mèo, Chó Corgi, Chảo PUBG, Dép Tổ Ong...
+// ============================================================
 (function () {
   'use strict';
 
-  var LS_KEY = 'birdie-skins:v1';
+  var STORAGE_KEY = 'birdie_meme_skins_v1';
+  var state = { weapon: 'banhmi', costume: 'box_man' };
 
-  // ------------------------------------------------------------------
-  // RACKET SKINS
-  // ------------------------------------------------------------------
-  var RACKETS = [
-    { id: 'classic', name: 'Mặc định', emoji: '🏸', frame: null },
-    { id: 'sakura', name: 'Hoa Anh Đào', emoji: '🌸', frame: '#ff8fb8', str: '#ffe3ee', strOp: 0.6, gem: { c: '#ffd1e3', n: 10, r: 0.016, flat: true } },
-    { id: 'neon', name: 'Neon Cyber', emoji: '💠', frame: '#00e5ff', emissive: '#00bcd4', ei: 0.9, str: '#7df9ff', strOp: 0.55, glow: { c: '#00e5ff', op: 0.45 } },
-    { id: 'fire', name: 'Lửa Địa Ngục', emoji: '🔥', frame: '#ff4500', emissive: '#ff2200', ei: 0.8, str: '#ffb347', strOp: 0.5, gem: { c: '#ffa200', n: 12, r: 0.017, emissive: '#ff6a00' } },
-    { id: 'ice', name: 'Băng Giá', emoji: '❄️', frame: '#a5e6ff', emissive: '#69c9ff', ei: 0.35, metal: 0.4, str: '#e9fbff', strOp: 0.6, gem: { c: '#ffffff', n: 8, r: 0.015, emissive: '#bdeaff' } },
-    { id: 'gold', name: 'Hoàng Kim', emoji: '👑', frame: '#ffcf33', metal: 0.95, rough: 0.2, emissive: '#7a5a00', ei: 0.25, str: '#fff2b0', strOp: 0.5, gem: { c: '#ff3b5c', n: 6, r: 0.018 } },
-    { id: 'galaxy', name: 'Dải Ngân Hà', emoji: '🌌', frame: '#6a3df0', emissive: '#3b1fb8', ei: 0.7, str: '#c8b6ff', strOp: 0.5, gem: { c: '#fff27a', n: 14, r: 0.012, emissive: '#fff27a' } },
-    { id: 'rainbow', name: 'Cầu Vồng', emoji: '🌈', frame: '#ffffff', str: '#ffffff', strOp: 0.5, rainbow: true },
-    { id: 'matcha', name: 'Trà Xanh', emoji: '🍵', frame: '#7cc576', str: '#eaffd9', strOp: 0.55, gem: { c: '#4f9d4a', n: 8, r: 0.014 } },
-    { id: 'vampire', name: 'Ma Cà Rồng', emoji: '🦇', frame: '#1b1b24', emissive: '#7a0019', ei: 0.5, metal: 0.6, str: '#ff4d6d', strOp: 0.4, gem: { c: '#b3002d', n: 6, r: 0.016, emissive: '#b3002d' } },
-    { id: 'candy', name: 'Kẹo Bông', emoji: '🍭', frame: '#ff9ad5', str: '#bff0ff', strOp: 0.6, gem: { c: '#9be7ff', n: 10, r: 0.015 } },
-    { id: 'thunder', name: 'Sấm Sét', emoji: '⚡', frame: '#ffe600', emissive: '#ffd000', ei: 0.85, str: '#fffbb0', strOp: 0.55, glow: { c: '#fff176', op: 0.5 } }
-  ];
-
-  // ------------------------------------------------------------------
-  // OUTFIT (COSPLAY) SKINS
-  // ------------------------------------------------------------------
-  function star(H, parent, pos, size, color, emissive) {
-    var mat = H.lC(color, emissive ? { emissive: emissive, key: 'star|' + color } : { key: 'star|' + color });
-    for (var i = 0; i < 5; i++) {
-      var th = (i * 2 * Math.PI) / 5;
-      var dx = -Math.sin(th), dy = Math.cos(th);
-      H.lN(H.lF(size * 0.34, size, 8), mat, {
-        pos: [pos[0] + dx * size * 0.5, pos[1] + dy * size * 0.5, pos[2]],
-        rot: [0, 0, th], scale: [1, 1, 0.3], parent: parent
-      });
+  try {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (parsed.weapon) state.weapon = parsed.weapon;
+      if (parsed.costume) state.costume = parsed.costume;
     }
-    H.lN(H.lU(size * 0.38, 10), mat, { pos: pos, scale: [1, 1, 0.3], parent: parent });
+  } catch (e) {}
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {}
   }
 
-  function mat(H, color, o) {
-    o = o || {};
-    o.key = 'sk|' + color + '|' + (o.emissive || '') + '|' + (o.metalness || '') + '|' + (o.opacity || '');
-    return H.lC(color, o);
+  // --- WEB AUDIO MEME SOUND SYNTHESIZER ---
+  var audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(function () {});
+    }
+    return audioCtx;
   }
 
-  function hideEars(m) { try { m.ears.forEach(function (g) { g.visible = false; }); } catch (e) {} }
+  function playMemeSound(weaponId) {
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    var w = weaponId || state.weapon;
+    var t = ctx.currentTime;
 
-  var OUTFITS = [
-    { id: 'default', name: 'Mặc định', emoji: '👕' },
-    { id: 'hero', name: 'Siêu Nhân', emoji: '🦸', shirt: '#e11d48', shorts: '#1d4ed8', accent: '#facc15',
-      build: function (m, H) {
-        H.lN(H.lD(0.36, 0.46, 0.03), mat(H, '#dc2626'), { pos: [0, 0.14, -0.21], rot: [0.16, 0, 0], cast: true, parent: m.torso });
-        H.lN(H.lD(0.38, 0.05, 0.035), mat(H, '#facc15'), { pos: [0, 0.36, -0.2], parent: m.torso });
-        star(H, m.torso, [0, 0.24, 0.2], 0.075, '#facc15', '#a16207');
-      } },
-    { id: 'wizard', name: 'Phù Thủy', emoji: '🧙', shirt: '#6d28d9', shorts: '#4c1d95', accent: '#fbbf24',
-      build: function (m, H) {
-        hideEars(m);
-        H.lN(H.lk(0.3, 0.3, 0.025, 28), mat(H, '#4c1d95'), { pos: [0, 0.26, 0], cast: true, parent: m.head });
-        H.lN(H.lF(0.2, 0.42, 24), mat(H, '#5b21b6'), { pos: [0, 0.48, -0.01], rot: [-0.12, 0, 0], cast: true, parent: m.head });
-        H.lN(H.lz(0.19, 0.022), mat(H, '#fbbf24'), { pos: [0, 0.3, 0], rot: [Math.PI / 2, 0, 0], parent: m.head });
-        star(H, m.head, [0, 0.45, 0.17], 0.06, '#fde047', '#ca8a04');
-      } },
-    { id: 'chef', name: 'Đầu Bếp', emoji: '👨‍🍳', shirt: '#ffffff', shorts: '#1f2937', accent: '#ef4444',
-      build: function (m, H) {
-        hideEars(m);
-        var w = mat(H, '#ffffff');
-        H.lN(H.lk(0.2, 0.21, 0.2, 24), w, { pos: [0, 0.36, 0], cast: true, parent: m.head });
-        H.lN(H.lU(0.16, 18), w, { pos: [0, 0.52, 0], scale: [1.25, 0.85, 1.25], cast: true, parent: m.head });
-        H.lN(H.lz(0.2, 0.022), mat(H, '#ef4444'), { pos: [0, 0.28, 0], rot: [Math.PI / 2, 0, 0], parent: m.head });
-        H.lN(H.lz(0.14, 0.03), mat(H, '#ef4444'), { pos: [0, 0.37, 0], rot: [Math.PI / 2, 0, 0], parent: m.torso });
-      } },
-    { id: 'santa', name: 'Ông Già Noel', emoji: '🎅', shirt: '#dc2626', shorts: '#991b1b', accent: '#ffffff',
-      build: function (m, H) {
-        hideEars(m);
-        H.lN(H.lF(0.2, 0.32, 20), mat(H, '#dc2626'), { pos: [0, 0.42, -0.04], rot: [-0.35, 0, 0], cast: true, parent: m.head });
-        H.lN(H.lz(0.2, 0.045), mat(H, '#ffffff'), { pos: [0, 0.27, 0], rot: [Math.PI / 2, 0, 0], parent: m.head });
-        H.lN(H.lU(0.055, 12), mat(H, '#ffffff'), { pos: [0, 0.54, -0.13], parent: m.head });
-        H.lN(H.lD(0.07, 0.4, 0.03), mat(H, '#ffffff'), { pos: [0, 0.2, 0.2], parent: m.torso });
-      } },
-    { id: 'pirate', name: 'Cướp Biển', emoji: '🏴‍☠️', shirt: '#f1f5f9', shorts: '#111827', accent: '#dc2626',
-      build: function (m, H) {
-        hideEars(m);
-        H.lN(H.lU(0.31, 24), mat(H, '#111827'), { pos: [0, 0.27, 0], scale: [1.15, 0.38, 0.95], cast: true, parent: m.head });
-        H.lN(H.lU(0.04, 10), mat(H, '#ffffff'), { pos: [0, 0.3, 0.3], scale: [1, 1, 0.3], parent: m.head });
-        H.lN(H.lD(0.46, 0.06, 0.03), mat(H, '#dc2626'), { pos: [0, 0.2, 0.19], parent: m.torso });
-        H.lN(H.lD(0.46, 0.06, 0.03), mat(H, '#dc2626'), { pos: [0, 0.1, 0.2], parent: m.torso });
-      } },
-    { id: 'crown', name: 'Hoàng Tử', emoji: '🤴', shirt: '#2563eb', shorts: '#1e3a8a', accent: '#fbbf24',
-      build: function (m, H) {
-        hideEars(m);
-        var g = mat(H, '#fbbf24', { metalness: 0.9, roughness: 0.25 });
-        H.lN(H.lk(0.15, 0.17, 0.09, 20), g, { pos: [0, 0.31, 0], cast: true, parent: m.head });
-        for (var i = 0; i < 5; i++) {
-          var a = (i * 2 * Math.PI) / 5;
-          H.lN(H.lF(0.032, 0.1, 6), g, { pos: [Math.sin(a) * 0.15, 0.4, Math.cos(a) * 0.15], parent: m.head });
-          H.lN(H.lU(0.016, 8), mat(H, '#ef4444'), { pos: [Math.sin(a) * 0.165, 0.33, Math.cos(a) * 0.165], parent: m.head });
+    try {
+      if (w === 'frying_pan') {
+        // Metallic KEEENG!
+        var osc1 = ctx.createOscillator();
+        var osc2 = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(1750, t);
+        osc1.frequency.exponentialRampToValueAtTime(1200, t + 0.5);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(3200, t);
+        osc2.frequency.exponentialRampToValueAtTime(1800, t + 0.35);
+
+        gain.gain.setValueAtTime(0.4, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        osc1.start(t);
+        osc2.start(t);
+        osc1.stop(t + 0.6);
+        osc2.stop(t + 0.6);
+      } else if (w === 'banhmi') {
+        // Crunchy Bánh Mì CRUNCH!
+        var bufferSize = Math.floor(ctx.sampleRate * 0.25);
+        var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        var data = buffer.getChannelData(0);
+        for (var i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.05));
         }
-        H.lN(H.lD(0.36, 0.44, 0.03), mat(H, '#7c3aed'), { pos: [0, 0.13, -0.21], rot: [0.14, 0, 0], parent: m.torso });
-      } },
-    { id: 'ninja', name: 'Ninja', emoji: '🥷', shirt: '#1f2937', shorts: '#111827', accent: '#ef4444',
-      build: function (m, H) {
-        var r = mat(H, '#ef4444');
-        H.lN(H.lz(0.285, 0.028), r, { pos: [0, 0.11, 0], rot: [Math.PI / 2, 0, 0], cast: true, parent: m.head });
-        H.lN(H.lD(0.045, 0.2, 0.02), r, { pos: [0.05, 0.05, -0.3], rot: [0.3, 0, 0.2], parent: m.head });
-        H.lN(H.lD(0.045, 0.22, 0.02), r, { pos: [-0.05, 0.03, -0.3], rot: [0.3, 0, -0.25], parent: m.head });
-        H.lN(H.lz(0.15, 0.045), r, { pos: [0, 0.37, 0], rot: [Math.PI / 2, 0, 0], parent: m.torso });
-      } },
-    { id: 'astro', name: 'Phi Hành Gia', emoji: '🧑‍🚀', shirt: '#f8fafc', shorts: '#e2e8f0', accent: '#f97316',
-      build: function (m, H) {
-        hideEars(m);
-        H.lN(H.lU(0.37, 28), mat(H, '#bfe9ff', { transparent: true, opacity: 0.22, roughness: 0.1, metalness: 0.2 }), { scale: [1, 0.97, 1], parent: m.head });
-        H.lN(H.lz(0.21, 0.035), mat(H, '#e2e8f0', { metalness: 0.5 }), { pos: [0, -0.27, 0], rot: [Math.PI / 2, 0, 0], parent: m.head });
-        H.lN(H.lD(0.24, 0.3, 0.12), mat(H, '#cbd5e1', { metalness: 0.4 }), { pos: [0, 0.2, -0.24], cast: true, parent: m.torso });
-        H.lN(H.lU(0.03, 8), mat(H, '#f97316', { emissive: '#c2410c' }), { pos: [-0.08, 0.26, 0.2], parent: m.torso });
-        H.lN(H.lU(0.03, 8), mat(H, '#22c55e', { emissive: '#15803d' }), { pos: [0.08, 0.26, 0.2], parent: m.torso });
-      } },
-    { id: 'dj', name: 'DJ Idol', emoji: '🎧', shirt: '#7e22ce', shorts: '#be185d', accent: '#22d3ee',
-      build: function (m, H) {
-        var n = mat(H, '#22d3ee', { emissive: '#0891b2', emissiveIntensity: 0.8 });
-        H.lN(H.lz(0.3, 0.024, Math.PI), n, { pos: [0, 0.03, 0], cast: true, parent: m.head });
-        H.lN(H.lU(0.075, 14), mat(H, '#ec4899', { emissive: '#be185d' }), { pos: [0.3, 0.03, 0], scale: [0.55, 1, 1], parent: m.head });
-        H.lN(H.lU(0.075, 14), mat(H, '#ec4899', { emissive: '#be185d' }), { pos: [-0.3, 0.03, 0], scale: [0.55, 1, 1], parent: m.head });
-        H.lN(H.lz(0.14, 0.02), n, { pos: [0, 0.24, 0.2], parent: m.torso });
-      } },
-    { id: 'vietnam', name: 'Tuyển Việt Nam', emoji: '🇻🇳', shirt: '#da251d', shorts: '#ffcd00', accent: '#ffcd00',
-      build: function (m, H) {
-        star(H, m.torso, [0, 0.24, 0.205], 0.12, '#ffcd00', '#b38f00');
-        H.lN(H.lz(0.285, 0.026), mat(H, '#da251d'), { pos: [0, 0.11, 0], rot: [Math.PI / 2, 0, 0], parent: m.head });
-        star(H, m.head, [0, 0.11, 0.285], 0.07, '#ffcd00', '#b38f00');
-      } },
-    { id: 'shaolin', name: 'Thiếu Lâm', emoji: '🥋', shirt: '#f59e0b', shorts: '#b45309', accent: '#7c2d12',
-      build: function (m, H) {
-        var b = mat(H, '#7c2d12');
-        for (var i = 0; i < 12; i++) {
-          var a = (i * 2 * Math.PI) / 12;
-          H.lN(H.lU(0.026, 8), b, { pos: [Math.sin(a) * 0.15, 0.36 - Math.cos(a) * 0.03 - 0.02, Math.cos(a) * 0.15], parent: m.torso });
-        }
-        H.lN(H.lD(0.5, 0.05, 0.04), mat(H, '#1f2937'), { pos: [0, 0.02, 0.17], parent: m.torso });
-        H.lN(H.lz(0.285, 0.022), mat(H, '#fde68a'), { pos: [0, 0.1, 0], rot: [Math.PI / 2, 0, 0], parent: m.head });
-      } },
-    { id: 'cowboy', name: 'Cao Bồi', emoji: '🤠', shirt: '#c2410c', shorts: '#1e3a8a', accent: '#fef3c7',
-      build: function (m, H) {
-        hideEars(m);
-        var br = mat(H, '#92400e');
-        H.lN(H.lk(0.4, 0.4, 0.025, 28), br, { pos: [0, 0.26, 0], cast: true, parent: m.head });
-        H.lN(H.lk(0.2, 0.22, 0.2, 22), br, { pos: [0, 0.37, 0], cast: true, parent: m.head });
-        H.lN(H.lz(0.215, 0.025), mat(H, '#451a03'), { pos: [0, 0.31, 0], rot: [Math.PI / 2, 0, 0], parent: m.head });
-        H.lN(H.lz(0.15, 0.035), mat(H, '#dc2626'), { pos: [0, 0.37, 0], rot: [Math.PI / 2, 0, 0], parent: m.torso });
-      } }
-  ];
+        var noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        var filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1400, t);
+        var ngain = ctx.createGain();
+        ngain.gain.setValueAtTime(0.5, t);
+        ngain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+        noise.connect(filter);
+        filter.connect(ngain);
+        ngain.connect(ctx.destination);
+        noise.start(t);
+      } else if (w === 'fat_cat') {
+        // MEOWW!
+        var mOsc = ctx.createOscillator();
+        var mGain = ctx.createGain();
+        mOsc.type = 'sine';
+        mOsc.frequency.setValueAtTime(850, t);
+        mOsc.frequency.exponentialRampToValueAtTime(1350, t + 0.15);
+        mOsc.frequency.exponentialRampToValueAtTime(950, t + 0.4);
 
-  // ------------------------------------------------------------------
-  // STATE
-  // ------------------------------------------------------------------
-  function load() {
-    try { var s = JSON.parse(localStorage.getItem(LS_KEY)); if (s && typeof s === 'object') return s; } catch (e) {}
-    return { racket: 'classic', outfit: 'default' };
+        mGain.gain.setValueAtTime(0.05, t);
+        mGain.gain.linearRampToValueAtTime(0.35, t + 0.08);
+        mGain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+
+        mOsc.connect(mGain);
+        mGain.connect(ctx.destination);
+        mOsc.start(t);
+        mOsc.stop(t + 0.42);
+      } else if (w === 'corgi') {
+        // GÂU GÂU!
+        var bOsc = ctx.createOscillator();
+        var bGain = ctx.createGain();
+        bOsc.type = 'sawtooth';
+        bOsc.frequency.setValueAtTime(420, t);
+        bOsc.frequency.exponentialRampToValueAtTime(220, t + 0.18);
+        bGain.gain.setValueAtTime(0.3, t);
+        bGain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+        bOsc.connect(bGain);
+        bGain.connect(ctx.destination);
+        bOsc.start(t);
+        bOsc.stop(t + 0.2);
+      } else if (w === 'slippers') {
+        // BẸT BẸT!
+        var sOsc = ctx.createOscillator();
+        var sGain = ctx.createGain();
+        sOsc.type = 'triangle';
+        sOsc.frequency.setValueAtTime(240, t);
+        sOsc.frequency.exponentialRampToValueAtTime(60, t + 0.15);
+        sGain.gain.setValueAtTime(0.5, t);
+        sGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        sOsc.connect(sGain);
+        sGain.connect(ctx.destination);
+        sOsc.start(t);
+        sOsc.stop(t + 0.18);
+      } else if (w === 'sword') {
+        // XOẸT!
+        var swOsc = ctx.createOscillator();
+        var swGain = ctx.createGain();
+        swOsc.type = 'sine';
+        swOsc.frequency.setValueAtTime(2200, t);
+        swOsc.frequency.exponentialRampToValueAtTime(400, t + 0.22);
+        swGain.gain.setValueAtTime(0.35, t);
+        swGain.gain.exponentialRampToValueAtTime(0.01, t + 0.22);
+        swOsc.connect(swGain);
+        swGain.connect(ctx.destination);
+        swOsc.start(t);
+        swOsc.stop(t + 0.22);
+      } else if (w === 'fish') {
+        // BÉP BÉP!
+        var fOsc = ctx.createOscillator();
+        var fGain = ctx.createGain();
+        fOsc.type = 'sine';
+        fOsc.frequency.setValueAtTime(480, t);
+        fOsc.frequency.exponentialRampToValueAtTime(140, t + 0.18);
+        fGain.gain.setValueAtTime(0.4, t);
+        fGain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+        fOsc.connect(fGain);
+        fGain.connect(ctx.destination);
+        fOsc.start(t);
+        fOsc.stop(t + 0.2);
+      } else if (w === 'plunger') {
+        // BỤP BỤP!
+        var pOsc = ctx.createOscillator();
+        var pGain = ctx.createGain();
+        pOsc.type = 'sine';
+        pOsc.frequency.setValueAtTime(160, t);
+        pOsc.frequency.exponentialRampToValueAtTime(540, t + 0.1);
+        pOsc.frequency.exponentialRampToValueAtTime(100, t + 0.22);
+        pGain.gain.setValueAtTime(0.4, t);
+        pGain.gain.exponentialRampToValueAtTime(0.01, t + 0.22);
+        pOsc.connect(pGain);
+        pGain.connect(ctx.destination);
+        pOsc.start(t);
+        pOsc.stop(t + 0.22);
+      }
+    } catch (e) {}
   }
-  var state = load();
-  function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
-  function byId(list, id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return list[0]; }
-  function curRacket() { return byId(RACKETS, state.racket); }
-  function curOutfit() { return byId(OUTFITS, state.outfit); }
 
-  // ------------------------------------------------------------------
-  // API USED BY THE GAME BUNDLE
-  // ------------------------------------------------------------------
-  var API = {
-    state: state,
-    skinDef: function (def) {
-      var r = curRacket(), o = curOutfit();
-      if (r.id === 'classic' && o.id === 'default') return def;
-      var d = {};
-      for (var k in def) d[k] = def[k];
-      if (o.shirt) { d.shirt = o.shirt; d.shorts = o.shorts; d.accent = o.accent; }
-      if (r.frame) d.racket = r.frame;
-      d.__sk = true;
-      d.__rk = r.id;
-      d.__of = o.id;
-      return d;
-    },
-    frameOpts: function (def) {
-      if (!def || !def.__sk) return { roughness: 0.4 };
-      var r = byId(RACKETS, def.__rk);
-      var o = { key: 'rk|' + r.id + '|' + def.racket, roughness: r.rough != null ? r.rough : 0.4 };
-      if (r.metal) o.metalness = r.metal;
-      if (r.emissive) { o.emissive = r.emissive; o.emissiveIntensity = r.ei || 0.5; }
-      return o;
-    },
-    stringColor: function (def) {
-      if (!def || !def.__sk) return '#ffffff';
-      var r = byId(RACKETS, def.__rk);
-      return r.str || '#ffffff';
-    },
-    stringOpacity: function (def) {
-      if (!def || !def.__sk) return 0.45;
-      var r = byId(RACKETS, def.__rk);
-      return r.strOp != null ? r.strOp : 0.45;
-    },
-    decorate: function (m, def, H) {
-      try {
-        var r = byId(RACKETS, def.__rk), o = byId(OUTFITS, def.__of);
-        if (r && m.racketHead) buildRacketExtras(m, r, H);
-        if (o && o.build) o.build(m, H);
-      } catch (e) { if (window.console) console.warn('[BirdieSkins] decorate failed', e); }
-    }
-  };
+  // --- 3D DECORATE HOOK ---
+  function decorate(model, def, H) {
+    if (!model || !H) return;
+    var lN = H.lN, lP = H.lP, lU = H.lU, lk = H.lk, lz = H.lz, lF = H.lF, lD = H.lD, lC = H.lC;
+    if (!lN || !lP) return;
 
-  function ringPos(a, k) { k = k || 1; return [0, Math.cos(a) * 0.108 * k, Math.sin(a) * 0.082 * k]; }
+    var curW = state.weapon || 'banhmi';
+    var curC = state.costume || 'box_man';
 
-  function buildRacketExtras(m, r, H) {
-    var rh = m.racketHead;
-    if (r.glow) {
-      H.lN(H.lz(0.108, 0.007), H.lC(r.glow.c, { key: 'rg|' + r.id, transparent: true, opacity: r.glow.op, emissive: r.glow.c, emissiveIntensity: 1 }),
-        { scale: [0.82, 1.08, 1], rot: [0, Math.PI / 2, 0], parent: rh });
-    }
-    if (r.gem) {
-      for (var i = 0; i < r.gem.n; i++) {
-        var a = (i / r.gem.n) * Math.PI * 2;
-        var o = { key: 'rgem|' + r.id };
-        if (r.gem.emissive) { o.emissive = r.gem.emissive; o.emissiveIntensity = 0.9; }
-        H.lN(H.lU(r.gem.r, 8), H.lC(r.gem.c, o), { pos: ringPos(a), scale: r.gem.flat ? [0.6, 1.3, 1.3] : 1, parent: rh });
+    // 1. ATTACH 3D MEME WEAPON
+    if (model.racketHead && model.racketHead.parent && curW !== 'classic') {
+      var rkRoot = model.racketHead.parent;
+      // Hide standard racket children
+      for (var i = 0; i < rkRoot.children.length; i++) {
+        var ch = rkRoot.children[i];
+        if (!ch.__isCustomWeapon) ch.visible = false;
+      }
+
+      var wGrp = lP(rkRoot, [0, -0.32, 0]);
+      wGrp.__isCustomWeapon = true;
+
+      if (curW === 'banhmi') {
+        // 🥖 Ổ Bánh Mì
+        lN(lk(0.065, 0.052, 0.44, 12), lC('#d97706', { roughness: 0.6 }), {
+          pos: [0, 0, 0], scale: [0.75, 1, 0.65], cast: true, parent: wGrp
+        });
+        // 3 slits
+        lN(lF(0.08, 0.015, 0.03), lC('#78350f'), { pos: [0, 0.1, 0.04], parent: wGrp });
+        lN(lF(0.08, 0.015, 0.03), lC('#78350f'), { pos: [0, 0, 0.04], parent: wGrp });
+        lN(lF(0.08, 0.015, 0.03), lC('#78350f'), { pos: [0, -0.1, 0.04], parent: wGrp });
+        // Cucumber & chili
+        lN(lU(0.024, 8), lC('#22c55e'), { pos: [0.03, 0.06, 0.04], parent: wGrp });
+        lN(lU(0.018, 6), lC('#ef4444'), { pos: [-0.02, -0.04, 0.04], parent: wGrp });
+        // Paper wrap handle
+        lN(lk(0.048, 0.048, 0.12, 10), lC('#fef3c7'), { pos: [0, -0.2, 0], parent: wGrp });
+        lN(lz(0.05, 0.008, 6, 12), lC('#dc2626'), { pos: [0, -0.18, 0], rot: [Math.PI / 2, 0, 0], parent: wGrp });
+      } else if (curW === 'fat_cat') {
+        // 🐱 Bé Mèo Béo
+        lN(lU(0.14, 16), lC('#fb923c', { roughness: 0.7 }), { pos: [0, 0, 0], scale: [1, 1.25, 0.95], cast: true, parent: wGrp });
+        lN(lU(0.1, 14), lC('#fff7ed'), { pos: [0, 0, 0.05], parent: wGrp });
+        lN(lD(0.035, 0.07, 4), lC('#ea580c'), { pos: [-0.06, 0.14, 0], parent: wGrp });
+        lN(lD(0.035, 0.07, 4), lC('#ea580c'), { pos: [0.06, 0.14, 0], parent: wGrp });
+        lN(lU(0.016, 8), lC('#18181b'), { pos: [-0.038, 0.04, 0.12], parent: wGrp });
+        lN(lU(0.016, 8), lC('#18181b'), { pos: [0.038, 0.04, 0.12], parent: wGrp });
+        lN(lD(0.012, 0.016, 3), lC('#f43f5e'), { pos: [0, 0.015, 0.13], rot: [Math.PI, 0, 0], parent: wGrp });
+        // Tail handle
+        lN(lk(0.022, 0.018, 0.22, 8), lC('#ea580c'), { pos: [0, -0.22, 0], parent: wGrp });
+      } else if (curW === 'corgi') {
+        // 🐶 Chó Corgi Mông Tim
+        lN(lU(0.1, 14), lC('#f59e0b', { roughness: 0.7 }), { pos: [-0.05, 0.02, 0], cast: true, parent: wGrp });
+        lN(lU(0.1, 14), lC('#f59e0b', { roughness: 0.7 }), { pos: [0.05, 0.02, 0], cast: true, parent: wGrp });
+        lN(lU(0.075, 12), lC('#ffffff'), { pos: [0, 0.02, 0.04], parent: wGrp });
+        lN(lU(0.028, 8), lC('#fb7185'), { pos: [0, 0.03, 0.09], parent: wGrp });
+        lN(lU(0.032, 8), lC('#f59e0b'), { pos: [0, 0.13, -0.02], parent: wGrp });
+        // Handle
+        lN(lk(0.022, 0.018, 0.2, 8), lC('#b45309'), { pos: [0, -0.2, 0], parent: wGrp });
+      } else if (curW === 'frying_pan') {
+        // 🍳 Chảo PUBG
+        lN(lk(0.012, 0.012, 0.22, 8), lC('#18181b', { metalness: 0.8, roughness: 0.3 }), { pos: [0, 0.12, 0], parent: wGrp });
+        lN(lk(0.16, 0.155, 0.025, 20), lC('#27272a', { metalness: 0.85, roughness: 0.3 }), { pos: [0, -0.1, 0], rot: [Math.PI / 2, 0, 0], cast: true, parent: wGrp });
+        lN(lz(0.155, 0.016, 8, 20), lC('#09090b', { metalness: 0.9, roughness: 0.2 }), { pos: [0, -0.1, 0], rot: [Math.PI / 2, 0, 0], parent: wGrp });
+        // Fried Egg
+        lN(lU(0.055, 10), lC('#ffffff'), { pos: [0, -0.1, 0.015], scale: [1, 1, 0.2], parent: wGrp });
+        lN(lU(0.025, 8), lC('#facc15'), { pos: [0.01, -0.1, 0.025], parent: wGrp });
+      } else if (curW === 'slippers') {
+        // 🩴 Dép Tổ Ong
+        lN(lF(0.19, 0.38, 0.03), lC('#fef08a', { roughness: 0.8 }), { pos: [0, 0, 0], rot: [0, 0, -0.1], cast: true, parent: wGrp });
+        lN(lz(0.085, 0.018, 6, 16), lC('#0284c7'), { pos: [0, 0.02, 0.03], rot: [0, Math.PI / 2, 0], parent: wGrp });
+        // Holes dots
+        for (var d = -0.12; d <= 0.12; d += 0.06) {
+          lN(lU(0.008, 6), lC('#ca8a04'), { pos: [-0.04, d, 0.016], parent: wGrp });
+          lN(lU(0.008, 6), lC('#ca8a04'), { pos: [0.04, d, 0.016], parent: wGrp });
+        }
+      } else if (curW === 'sword') {
+        // 🗡️ Kiếm Pixel
+        lN(lF(0.05, 0.44, 0.02), lC('#38bdf8', { metalness: 0.5, roughness: 0.2 }), { pos: [0, 0, 0], cast: true, parent: wGrp });
+        lN(lF(0.065, 0.42, 0.015), lC('#0284c7'), { pos: [0, 0, 0], parent: wGrp });
+        lN(lF(0.14, 0.035, 0.035), lC('#1e293b'), { pos: [0, -0.12, 0], parent: wGrp });
+        lN(lk(0.014, 0.014, 0.14, 6), lC('#78350f'), { pos: [0, -0.21, 0], parent: wGrp });
+      } else if (curW === 'fish') {
+        // 🐟 Cá Muối Ươn
+        lN(lU(0.12, 14), lC('#7dd3fc'), { pos: [0, -0.05, 0], scale: [0.55, 1.8, 0.4], cast: true, parent: wGrp });
+        lN(lD(0.06, 0.12, 4), lC('#38bdf8'), { pos: [0, 0.12, 0], rot: [Math.PI, 0, 0], parent: wGrp });
+        // Dead Eyes
+        lN(lU(0.02, 6), lC('#ffffff'), { pos: [-0.03, -0.16, 0.04], parent: wGrp });
+        lN(lU(0.02, 6), lC('#ffffff'), { pos: [0.03, -0.16, 0.04], parent: wGrp });
+        lN(lU(0.01, 4), lC('#0f172a'), { pos: [-0.03, -0.16, 0.055], parent: wGrp });
+        lN(lU(0.01, 4), lC('#0f172a'), { pos: [0.03, -0.16, 0.055], parent: wGrp });
+      } else if (curW === 'plunger') {
+        // 🪠 Cây Thụt Bồn Cầu
+        lN(lk(0.014, 0.014, 0.34, 8), lC('#b45309'), { pos: [0, 0.05, 0], parent: wGrp });
+        lN(lD(0.14, 0.11, 16), lC('#dc2626'), { pos: [0, -0.18, 0], rot: [Math.PI, 0, 0], cast: true, parent: wGrp });
       }
     }
-    if (r.rainbow) {
-      var cols = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#38bdf8', '#6366f1', '#a855f7'];
-      for (var j = 0; j < cols.length; j++) {
-        var rr = 0.1 + j * 0.0035;
-        H.lN(H.lz(rr, 0.0045), H.lC(cols[j], { key: 'rb|' + cols[j], emissive: cols[j], emissiveIntensity: 0.5 }),
-          { scale: [0.82, 1.08, 1], rot: [0, Math.PI / 2, 0], parent: rh });
+
+    // 2. ATTACH 3D MEME COSTUME
+    if (model.torso && curC !== 'default') {
+      if (curC === 'box_man') {
+        // 📦 Thùng Mì Hảo Hảo
+        lN(lF(0.52, 0.58, 0.5), lC('#d97706', { roughness: 0.9 }), {
+          pos: [0, 0.28, 0], cast: true, parent: model.torso
+        });
+        // Red stamp
+        lN(lF(0.24, 0.1, 0.01), lC('#dc2626'), { pos: [0, 0.2, 0.252], parent: model.torso });
+        // Eyeholes
+        lN(lF(0.08, 0.05, 0.02), lC('#18181b'), { pos: [-0.1, 0.38, 0.252], parent: model.torso });
+        lN(lF(0.08, 0.05, 0.02), lC('#18181b'), { pos: [0.1, 0.38, 0.252], parent: model.torso });
+      } else if (curC === 'banana') {
+        // 🍌 Quả Chuối Vàng
+        lN(lU(0.3, 16), lC('#facc15', { roughness: 0.5 }), {
+          pos: [0, 0.25, 0], scale: [0.92, 1.5, 0.88], cast: true, parent: model.torso
+        });
+        // Green stem on top
+        lN(lk(0.03, 0.02, 0.14, 8), lC('#15803d'), { pos: [0, 0.65, -0.05], rot: [0.3, 0, 0], parent: model.torso });
+      } else if (curC === 'dino') {
+        // 🦖 Khủng Long Bơm Hơi
+        lN(lU(0.28, 16), lC('#22c55e', { roughness: 0.6 }), {
+          pos: [0, 0.22, 0], scale: [1.05, 1.22, 1.08], cast: true, parent: model.torso
+        });
+        // Tiny arms
+        lN(lk(0.018, 0.012, 0.09, 6), lC('#15803d'), { pos: [-0.12, 0.25, 0.26], rot: [0.7, 0, 0.3], parent: model.torso });
+        lN(lk(0.018, 0.012, 0.09, 6), lC('#15803d'), { pos: [0.12, 0.25, 0.26], rot: [0.7, 0, -0.3], parent: model.torso });
+        // Tail
+        lN(lD(0.1, 0.28, 8), lC('#16a34a'), { pos: [0, 0.1, -0.32], rot: [-1.2, 0, 0], parent: model.torso });
+      } else if (curC === 'shark') {
+        // 🦈 Cá Mập IKEA
+        lN(lU(0.28, 16), lC('#0284c7', { roughness: 0.6 }), {
+          pos: [0, 0.22, 0], scale: [1, 1.25, 1], cast: true, parent: model.torso
+        });
+        lN(lU(0.22, 12), lC('#f8fafc'), { pos: [0, 0.18, 0.12], parent: model.torso });
+        // Fin on back
+        lN(lD(0.07, 0.2, 4), lC('#0369a1'), { pos: [0, 0.32, -0.28], rot: [-1.2, 0, 0], parent: model.torso });
+      } else if (curC === 'mummy') {
+        // 🧻 Xác Ướp Cuộn Giấy
+        for (var b = -0.06; b <= 0.36; b += 0.1) {
+          lN(lz(0.22, 0.024, 6, 18), lC('#f8fafc', { roughness: 0.9 }), {
+            pos: [0, b, 0], rot: [Math.PI / 2 + (Math.random() * 0.2 - 0.1), 0, (Math.random() * 0.2 - 0.1)], parent: model.torso
+          });
+        }
+        // Trailing paper
+        lN(lF(0.06, 0.28, 0.01), lC('#e2e8f0'), { pos: [0.1, 0.05, -0.24], rot: [0.4, 0, 0.2], parent: model.torso });
+      } else if (curC === 'captain_sip') {
+        // 🩲 Siêu Nhân Sịp Đỏ
+        lN(lF(0.36, 0.48, 0.015), lC('#dc2626'), { pos: [0, 0.2, -0.22], rot: [0.25, 0, 0], parent: model.torso });
+        // Red briefs outside!
+        lN(lz(0.19, 0.035, 6, 20), lC('#ef4444'), { pos: [0, 0.06, 0], rot: [Math.PI / 2, 0, 0], parent: model.torso });
+        lN(lz(0.2, 0.016, 6, 20), lC('#facc15'), { pos: [0, 0.1, 0], rot: [Math.PI / 2, 0, 0], parent: model.torso });
       }
     }
   }
 
-  window.__birdieSkins = API;
+  // --- WEAPONS & COSTUMES CATALOG ---
+  var WEAPONS = [
+    { id: 'banhmi', emoji: '🥖', name: 'Ổ Bánh Mì', sound: 'Rôm Rốp!', tier: '🔥 VIỆT NAM', desc: 'Bánh mì nóng giòn kẹp chả pate thơm phức. Khi smash văng ra vụn bánh rôm rốp!' },
+    { id: 'fat_cat', emoji: '🐱', name: 'Bé Mèo Béo', sound: 'Meo Meo!', tier: '👑 HOÀNG THƯỢNG', desc: 'Cầm nguyên con mèo cam mập ú kêu Meo Meo ngơ ngác khi đỡ cầu!' },
+    { id: 'corgi', emoji: '🐶', name: 'Corgi Mông Tim', sound: 'Gâu Gâu!', tier: '🍑 MÔNG TRÁI TIM', desc: 'Dùng chiếc mông trái tim huyền thoại của Corgi để bạt cầu siêu chuẩn!' },
+    { id: 'frying_pan', emoji: '🍳', name: 'Chảo PUBG', sound: 'KEEENG!', tier: '🍳 HUYỀN THOẠI', desc: 'Đập cầu phát ra tiếng KENG vang dội khắp sân đấu, đỡ đạn cực đỉnh!' },
+    { id: 'slippers', emoji: '🩴', name: 'Dép Tổ Ong', sound: 'BẸT BẸT!', tier: '⚡ MẪU THÂN', desc: 'Vũ khí tối thượng của mẹ: Dép cao su 1000 lỗ chém cầu siêu tốc!' },
+    { id: 'sword', emoji: '🗡️', name: 'Kiếm Pixel', sound: 'Xoẹt Xoẹt!', tier: '⚔️ ANIME', desc: 'Thanh kiếm kim cương xanh chém đôi đường cầu lông đầy uy lực!' },
+    { id: 'fish', emoji: '🐟', name: 'Cá Muối Ươn', sound: 'BÉP BÉP!', tier: '🌊 TẤU HÀI', desc: 'Con cá muối ươn mắt đờ đẫn quất vào quả cầu kêu Bép Bép cực vui tai!' },
+    { id: 'plunger', emoji: '🪠', name: 'Thụt Cầu', sound: 'BỤP BỤP!', tier: '💩 BẤT BẠI', desc: 'Đầu cao su đỏ hút chân không mút dính quả cầu như nam châm!' },
+    { id: 'classic', emoji: '🏸', name: 'Vợt Mặc Định', sound: 'Bốp!', tier: '⭐ CƠ BẢN', desc: 'Cây vợt thể thao tiêu chuẩn của hiệp hội cầu lông thế giới.' }
+  ];
 
-  // ------------------------------------------------------------------
-  // UI (floating button + panel). Pure DOM so it does not touch React.
-  // ------------------------------------------------------------------
-  function hex2css(c) { return c || '#e5e7eb'; }
+  var COSTUMES = [
+    { id: 'box_man', emoji: '📦', name: 'Thùng Mì Hảo Hảo', sound: 'Sột Soạt!', tier: '🍜 ĐỈNH CAO BỰA', desc: 'Chui vào thùng các-tông mì tôm khoét 2 mắt ngơ ngác cực kỳ lầy lội!' },
+    { id: 'banana', emoji: '🍌', name: 'Quả Chuối Vàng', sound: 'Tưng Tưng!', tier: '🍌 VIRAL', desc: 'Bộ đồ quả chuối vàng chói lọi nhún nhảy tưng tưng theo từng nhịp chân!' },
+    { id: 'dino', emoji: '🦖', name: 'Khủng Long Bơm Hơi', sound: 'Gầm Mini!', tier: '🦖 NGÁO NGƠ', desc: 'Khủng long T-Rex bơm hơi lắc lư béo tròn với đôi tay ngắn cũn cỡn!' },
+    { id: 'shark', emoji: '🦈', name: 'Cá Mập IKEA', sound: 'Doo Doo!', tier: '🦈 CUTE', desc: 'Hóa thân thành cá mập bông xanh ngơ ngác lướt trên sân cầu lông!' },
+    { id: 'mummy', emoji: '🧻', name: 'Xác Ướp Giấy', sound: 'Xoẹt Giấy!', tier: '🧻 TIẾT KIỆM', desc: 'Quấn toàn thân bằng giấy vệ sinh 3 lớp vừa chạy vừa rơi giấy lả tả!' },
+    { id: 'captain_sip', emoji: '🩲', name: 'Siêu Nhân Sịp Đỏ', sound: 'Piu Piu!', tier: '🦸 ANH HÙNG', desc: 'Mặc quần sịp đỏ chói lọi ra ngoài quần dài với áo choàng bay phấp phới!' },
+    { id: 'default', emoji: '👕', name: 'Đồ Thể Thao', sound: 'Cơ bản', tier: '⭐ THỂ THAO', desc: 'Bộ quần áo thi đấu thể thao tiêu chuẩn thoáng mát.' }
+  ];
 
-  function css() {
-    if (document.getElementById('bsk-css')) return;
+  // --- UI CONSTRUCTION ---
+  var tab = 'weapons';
+
+  function injectCSS() {
+    if (document.getElementById('bsk-meme-css')) return;
     var s = document.createElement('style');
-    s.id = 'bsk-css';
+    s.id = 'bsk-meme-css';
     s.textContent =
-      '#bsk-btn{position:fixed;top:56px;right:14px;z-index:99998;width:42px;height:42px;border-radius:50%;border:2px solid #f0abfc;background:linear-gradient(135deg,#fdf4ff,#fce7f3);box-shadow:0 4px 14px rgba(190,24,93,.25);font-size:21px;line-height:38px;text-align:center;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;padding:0}' +
-      '#bsk-btn:active{transform:scale(.93)}' +
-      '#bsk-ov{position:fixed;inset:0;z-index:99999;background:rgba(30,16,40,.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
-      '#bsk-ov.on{display:flex}' +
-      '#bsk-pn{width:min(94vw,520px);max-height:88vh;background:#fffaf7;border:3px solid #f5d0e6;border-radius:22px;box-shadow:0 18px 50px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden;color:#2b1f2b}' +
-      '#bsk-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(90deg,#fbcfe8,#e9d5ff);font-weight:800;font-size:17px}' +
-      '#bsk-x{border:0;background:rgba(255,255,255,.7);border-radius:50%;width:32px;height:32px;font-size:16px;font-weight:800;cursor:pointer}' +
-      '#bsk-tabs{display:flex;gap:8px;padding:10px 14px 4px}' +
-      '.bsk-tab{flex:1;padding:9px 6px;border-radius:12px;border:2px solid #ecdcd5;background:#fff;font-weight:700;font-size:14px;cursor:pointer}' +
-      '.bsk-tab.on{background:#be185d;color:#fff;border-color:#be185d}' +
-      '#bsk-grid{padding:10px 14px 6px;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:9px}' +
-      '.bsk-card{position:relative;border:2.5px solid #ecdcd5;background:#fff;border-radius:14px;padding:10px 4px 8px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
-      '.bsk-card.on{border-color:#be185d;background:#fdf2f8;box-shadow:0 0 0 2px #fbcfe8}' +
-      '.bsk-card .e{font-size:28px;line-height:32px}' +
-      '.bsk-card .n{font-size:12px;font-weight:700;margin-top:4px}' +
-      '.bsk-card .d{display:flex;justify-content:center;gap:3px;margin-top:5px;min-height:10px}' +
-      '.bsk-card .d i{width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,0,0,.15)}' +
-      '.bsk-card .ck{position:absolute;top:4px;right:6px;font-size:13px;color:#be185d;font-weight:900;display:none}' +
-      '.bsk-card.on .ck{display:block}' +
-      '#bsk-ft{padding:9px 16px 13px;font-size:12px;color:#7a5c6e;text-align:center}' +
-      '#bsk-ft b{color:#be185d}';
+      '@keyframes bskWiggle{0%,100%{transform:rotate(-3deg) scale(1)}50%{transform:rotate(3deg) scale(1.06)}}' +
+      '#bsk-meme-btn{position:fixed;top:54px;right:14px;z-index:99998;height:38px;padding:0 14px;border-radius:999px;border:2.5px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);box-shadow:0 4px 14px rgba(245,158,11,.4);color:#78350f;font-weight:900;font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:transform .15s ease;font-family:system-ui,-apple-system,sans-serif}' +
+      '#bsk-meme-btn:hover{transform:scale(1.05)}#bsk-meme-btn:active{transform:scale(.95)}' +
+      '#bsk-meme-btn .ico{font-size:18px;animation:bskWiggle 1.5s ease-in-out infinite}' +
+      '#bsk-meme-ov{position:fixed;inset:0;z-index:99999;background:rgba(30,16,40,.6);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:12px}' +
+      '#bsk-meme-ov.on{display:flex}' +
+      '#bsk-meme-pn{width:min(94vw,540px);max-height:90vh;background:#fffdfa;border:3.5px solid #f59e0b;border-radius:26px;box-shadow:0 20px 60px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden;color:#2b1f2b}' +
+      '#bsk-meme-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(90deg,#fef3c7,#fed7aa);border-bottom:2.5px solid #f59e0b}' +
+      '#bsk-meme-hd h3{margin:0;font-size:16px;font-weight:900;color:#78350f;display:flex;align-items:center;gap:6px;flex:1}' +
+      '#bsk-meme-x{background:rgba(255,255,255,.8);border:2px solid #f59e0b;color:#78350f;font-weight:900;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}' +
+      '#bsk-meme-tabs{display:flex;gap:8px;padding:10px 14px;background:#fff7ed;border-bottom:1.5px solid #fed7aa}' +
+      '.bsk-m-tab{flex:1;padding:8px;border-radius:12px;border:2px solid #fcd34d;background:#ffffff;color:#78350f;font-weight:800;font-size:12px;cursor:pointer;transition:all .15s ease}' +
+      '.bsk-m-tab.on{background:linear-gradient(135deg,#f59e0b,#ea580c);color:#ffffff;border-color:#b45309;box-shadow:0 3px 10px rgba(234,88,12,.35)}' +
+      '#bsk-meme-body{display:flex;flex-direction:column;gap:10px;padding:14px;overflow-y:auto;max-height:calc(90vh - 170px)}' +
+      '#bsk-meme-preview{background:linear-gradient(135deg,#fef3c7,#fffbeb);border:2px solid #fde68a;border-radius:18px;padding:12px;display:flex;align-items:center;gap:14px}' +
+      '#bsk-prev-ico{font-size:46px;width:70px;height:70px;background:#ffffff;border:2.5px solid #f59e0b;border-radius:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(245,158,11,.2);flex-shrink:0}' +
+      '#bsk-prev-info{flex:1}' +
+      '#bsk-prev-name{font-size:15px;font-weight:900;color:#78350f;margin-bottom:2px}' +
+      '#bsk-prev-tier{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900;background:#ea580c;color:#ffffff;margin-bottom:4px}' +
+      '#bsk-prev-desc{font-size:11px;color:#451a03;line-height:1.4}' +
+      '#bsk-meme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px}' +
+      '.bsk-m-card{position:relative;background:#ffffff;border:2.5px solid #fde68a;border-radius:16px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;cursor:pointer;transition:all .15s ease;text-align:center;min-height:96px}' +
+      '.bsk-m-card:hover{border-color:#f59e0b;background:#fffbeb;transform:translateY(-2px)}' +
+      '.bsk-m-card.on{border-color:#ea580c;background:#fff7ed;box-shadow:0 4px 14px rgba(234,88,12,.25);outline:2px solid #ea580c}' +
+      '.bsk-m-card .ck{display:none;position:absolute;top:5px;right:6px;color:#ea580c;font-size:12px;font-weight:900}' +
+      '.bsk-m-card.on .ck{display:block}' +
+      '.bsk-m-card .e{font-size:32px;margin:2px 0}' +
+      '.bsk-m-card .n{font-size:11px;font-weight:800;color:#2b1f2b;line-height:1.2;margin-top:2px}' +
+      '.bsk-m-card .s{font-size:9px;font-weight:700;color:#ea580c;background:#fef3c7;padding:1px 6px;border-radius:999px;margin-top:4px}' +
+      '#bsk-meme-ft{padding:10px 14px;background:#fef3c7;border-top:1.5px solid #fed7aa;font-size:11px;color:#78350f;text-align:center;font-weight:700}';
     document.head.appendChild(s);
   }
 
-  var tab = 'racket';
-  function render() {
-    var grid = document.getElementById('bsk-grid');
+  function renderGrid() {
+    var grid = document.getElementById('bsk-meme-grid');
     if (!grid) return;
-    var list = tab === 'racket' ? RACKETS : OUTFITS;
-    var cur = tab === 'racket' ? state.racket : state.outfit;
+    var list = tab === 'weapons' ? WEAPONS : COSTUMES;
+    var cur = tab === 'weapons' ? state.weapon : state.costume;
     grid.innerHTML = '';
-    list.forEach(function (it) {
-      var c = document.createElement('div');
-      c.className = 'bsk-card' + (it.id === cur ? ' on' : '');
-      var dots = '';
-      var cols = tab === 'racket' ? [it.frame, it.str] : [it.shirt, it.shorts, it.accent];
-      cols.forEach(function (x) { if (x) dots += '<i style="background:' + hex2css(x) + '"></i>'; });
-      if (it.rainbow) dots = '<i style="background:#ef4444"></i><i style="background:#facc15"></i><i style="background:#22c55e"></i><i style="background:#6366f1"></i>';
-      c.innerHTML = '<span class="ck">✓</span><div class="e">' + it.emoji + '</div><div class="n">' + it.name + '</div><div class="d">' + dots + '</div>';
-      c.onclick = function () {
-        if (tab === 'racket') state.racket = it.id; else state.outfit = it.id;
-        save(); render(); toast();
+
+    list.forEach(function (item) {
+      var card = document.createElement('div');
+      card.className = 'bsk-m-card' + (item.id === cur ? ' on' : '');
+      card.innerHTML =
+        '<span class="ck">✓</span>' +
+        '<div class="e">' + item.emoji + '</div>' +
+        '<div class="n">' + item.name + '</div>' +
+        '<div class="s">' + item.sound + '</div>';
+
+      card.onclick = function () {
+        if (tab === 'weapons') {
+          state.weapon = item.id;
+          playMemeSound(item.id);
+        } else {
+          state.costume = item.id;
+        }
+        save();
+        updatePreview(item);
+        renderGrid();
+        showToast();
       };
-      grid.appendChild(c);
+
+      grid.appendChild(card);
     });
-    document.querySelectorAll('.bsk-tab').forEach(function (t) { t.classList.toggle('on', t.dataset.t === tab); });
+
+    document.querySelectorAll('.bsk-m-tab').forEach(function (t) {
+      t.classList.toggle('on', t.dataset.t === tab);
+    });
+
+    // Update preview with active item
+    var activeItem = list.find(function (x) { return x.id === cur; }) || list[0];
+    updatePreview(activeItem);
   }
 
-  var toastT = null;
-  function toast() {
-    var f = document.getElementById('bsk-ft');
-    if (!f) return;
-    f.innerHTML = '✅ Đã lưu! Skin hiện ra ở <b>trận đấu mới</b> (vào lại trận / chọn lại nhân vật).';
-    clearTimeout(toastT);
-    toastT = setTimeout(function () { f.innerHTML = 'Skin chỉ hiển thị trên <b>nhân vật của bạn</b>.'; }, 3500);
+  function updatePreview(item) {
+    var ico = document.getElementById('bsk-prev-ico');
+    var name = document.getElementById('bsk-prev-name');
+    var tier = document.getElementById('bsk-prev-tier');
+    var desc = document.getElementById('bsk-prev-desc');
+    if (!ico || !name || !tier || !desc) return;
+    ico.textContent = item.emoji;
+    name.textContent = item.name;
+    tier.textContent = item.tier + ' · ' + item.sound;
+    desc.textContent = item.desc;
+  }
+
+  var toastTimer = null;
+  function showToast() {
+    var ft = document.getElementById('bsk-meme-ft');
+    if (!ft) return;
+    ft.innerHTML = '🎉 <b>Đã Trang Bị!</b> Vào trận đấu mới để quẩy cùng vũ khí này!';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      ft.innerHTML = '💡 Skin & Vũ khí hiển thị trực tiếp trên <b>nhân vật của bạn</b> trong trận đấu!';
+    }, 3500);
   }
 
   function buildUI() {
-    if (document.getElementById('bsk-btn')) return;
-    css();
-    var b = document.createElement('button');
-    b.id = 'bsk-btn'; b.type = 'button'; b.title = 'Skin vợt & trang phục'; b.textContent = '🎨';
+    if (document.getElementById('bsk-meme-btn')) return;
+    injectCSS();
+
+    var btn = document.createElement('button');
+    btn.id = 'bsk-meme-btn';
+    btn.type = 'button';
+    btn.title = 'Mở Tủ Đồ Tấu Hài';
+    btn.innerHTML = '<span class="ico">🤣</span><span>TỦ ĐỒ MEME</span>';
+
     var ov = document.createElement('div');
-    ov.id = 'bsk-ov';
+    ov.id = 'bsk-meme-ov';
     ov.innerHTML =
-      '<div id="bsk-pn"><div id="bsk-hd"><span>🎨 Skin Studio</span><button id="bsk-x" type="button">✕</button></div>' +
-      '<div id="bsk-tabs"><button class="bsk-tab on" data-t="racket" type="button">🏸 Skin Vợt</button><button class="bsk-tab" data-t="outfit" type="button">🎭 Cosplay</button></div>' +
-      '<div id="bsk-grid"></div><div id="bsk-ft">Skin chỉ hiển thị trên <b>nhân vật của bạn</b>.</div></div>';
-    document.body.appendChild(b);
+      '<div id="bsk-meme-pn">' +
+        '<div id="bsk-meme-hd">' +
+          '<h3><span>🤣</span> KHO ĐỒ TẤU HÀI (MEME STUDIO)</h3>' +
+          '<button id="bsk-meme-x" type="button">✕</button>' +
+        '</div>' +
+        '<div id="bsk-meme-tabs">' +
+          '<button class="bsk-m-tab on" data-t="weapons" type="button">🥖 Vũ Khí Bựa (8 Món)</button>' +
+          '<button class="bsk-m-tab" data-t="costumes" type="button">📦 Trang Phục Lầy (6 Bộ)</button>' +
+        '</div>' +
+        '<div id="bsk-meme-body">' +
+          '<div id="bsk-meme-preview">' +
+            '<div id="bsk-prev-ico">🥖</div>' +
+            '<div id="bsk-prev-info">' +
+              '<div id="bsk-prev-name">Ổ Bánh Mì</div>' +
+              '<span id="bsk-prev-tier">🔥 VIỆT NAM · Rôm Rốp!</span>' +
+              '<div id="bsk-prev-desc">Bánh mì nóng giòn kẹp chả pate thơm phức.</div>' +
+            '</div>' +
+          '</div>' +
+          '<div id="bsk-meme-grid"></div>' +
+        '</div>' +
+        '<div id="bsk-meme-ft">💡 Skin & Vũ khí hiển thị trực tiếp trên <b>nhân vật của bạn</b> trong trận đấu!</div>' +
+      '</div>';
+
+    document.body.appendChild(btn);
     document.body.appendChild(ov);
-    function open() { ov.classList.add('on'); render(); }
+
+    function open() { ov.classList.add('on'); renderGrid(); }
     function close() { ov.classList.remove('on'); }
-    b.addEventListener('click', open);
+
+    btn.addEventListener('click', open);
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
-    document.getElementById('bsk-x').addEventListener('click', close);
-    document.querySelectorAll('.bsk-tab').forEach(function (t) {
-      t.addEventListener('click', function () { tab = t.dataset.t; render(); });
+    document.getElementById('bsk-meme-x').addEventListener('click', close);
+
+    document.querySelectorAll('.bsk-m-tab').forEach(function (t) {
+      t.addEventListener('click', function () {
+        tab = t.dataset.t;
+        renderGrid();
+      });
     });
+
     ['touchstart', 'pointerdown', 'mousedown'].forEach(function (ev) {
       ov.addEventListener(ev, function (e) { e.stopPropagation(); }, { passive: true });
-      b.addEventListener(ev, function (e) { e.stopPropagation(); }, { passive: true });
+      btn.addEventListener(ev, function (e) { e.stopPropagation(); }, { passive: true });
     });
   }
 
+  // Guard loop to survive React 18 hydration
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', buildUI);
   } else {
     buildUI();
   }
   setInterval(function () {
-    if (!document.getElementById('bsk-btn') && document.body) {
+    if (!document.getElementById('bsk-meme-btn') && document.body) {
       buildUI();
     }
   }, 500);
+
+  // Expose global API
+  window.__birdieSkins = {
+    state: state,
+    skinDef: function (def) { return def; },
+    frameOpts: function () { return { roughness: 0.4 }; },
+    stringColor: function () { return '#ffffff'; },
+    stringOpacity: function () { return 0.45; },
+    decorate: decorate,
+    playHitSound: function () { playMemeSound(); }
+  };
 })();
