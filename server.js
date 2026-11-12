@@ -684,6 +684,21 @@ wss.on('connection', (ws) => {
           break;
         }
 
+        case 'p2p_sig': {
+          if (ws.room && ws.room.players) {
+            for (const p of ws.room.players) {
+              if (p && p !== ws && p.readyState === 1 && (data.to === undefined || p.seat === data.to)) {
+                p.send(JSON.stringify({
+                  t: 'p2p_sig',
+                  from: ws.seat,
+                  signal: data.signal
+                }));
+              }
+            }
+          }
+          break;
+        }
+
         case 'voice_pcm':
         case 'voice_audio': {
           if (ws.room && ws.room.players) {
