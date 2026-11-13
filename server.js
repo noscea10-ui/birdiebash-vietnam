@@ -14,6 +14,7 @@ const MIME_TYPES = {
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.webp': 'image/webp',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.ico': 'image/x-icon',
@@ -62,6 +63,16 @@ const server = http.createServer((req, res) => {
   }
 
   // --- API Routes ---
+  
+  if (pathname === '/vi') {
+    const viPath = path.join(ROOT, 'vi.html');
+    if (fs.existsSync(viPath)) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      fs.createReadStream(viPath).pipe(res);
+      return;
+    }
+  }
+
   if (pathname === '/api/account') {
     if (req.method === 'GET') {
       const auth = req.headers.authorization;
@@ -167,6 +178,80 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+  }
+
+  
+  if (pathname === '/api/news') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      news: [
+        {
+          id: 10,
+          title: "Đấu rank mở lúc 9h sáng thứ Bảy 14/11 🏆",
+          body: "Chế độ đấu rank sắp ra mắt: thắng để lên bậc từ Bronze tới Legend và ghi tên lên bảng xếp hạng.\n\nTham gia group Facebook của Birdie Bash để theo dõi tin mới nhất!",
+          link: "https://www.facebook.com/groups/1177262041630943",
+          personal: false,
+          at: "2026-11-13T02:25:36.346Z"
+        },
+        {
+          id: 6,
+          title: "Mới: đối thủ thoát trận vẫn được tính thắng 🏆",
+          body: "Đối thủ thoát giữa trận online: nếu bạn đang dẫn và đã ghi ít nhất nửa số điểm cần thắng (6 điểm ở trận 11, 11 điểm ở trận 21), trận đó được tính là thắng. Người thoát vẫn bị tính thua.\n\nĐổi tên: người chơi đã đăng nhập đổi tên trong Profile rồi bấm Save, và mỗi 7 ngày chỉ đổi được một lần. Ai cũng còn một lần đổi ngay từ bây giờ, nên hãy chọn tên cho kỹ nhé!",
+          link: null,
+          personal: false,
+          at: "2026-11-12T03:27:28.327Z"
+        },
+        {
+          id: 4,
+          title: "Luật mới: Dive, phông lao, smash mạnh hơn 🏸",
+          body: "Theo góp ý của các bạn top bảng xếp hạng:\n\nBay người (Dive): chỉ cứu được cầu lúc đang lao. Bay liên tiếp thì nằm sân lâu hơn (1,5 giây, rồi 2 giây); nghỉ 6 giây là trở lại bình thường.\n\nPhông lao (mới): nhảy rồi bấm Clear, cầu bay thấp, nhanh, sâu tận cuối sân.\n\nSmash: đánh Perfect, giữ lực và nhảy đập đều mạnh hơn trước.",
+          link: "/vi#cach-choi",
+          personal: false,
+          at: "2026-11-12T02:26:45.337Z"
+        },
+        {
+          id: 3,
+          title: "Mới: report, kết bạn sau trận, lịch sử đấu đầy đủ",
+          body: "Report và kết bạn ngay ở màn kết quả sau mỗi trận online.\n\nẢnh đại diện của bạn hiện trên bảng điểm trong trận.\n\nProfile mới: xem toàn bộ lịch sử đấu bằng nút Show more. Từ nay game giữ lại mọi trận của bạn.\n\nMở Online match nhanh hơn, chơi nhiều trận liên tục đỡ nóng máy; bảng emote không còn bị che khi cầm ngang điện thoại.",
+          link: null,
+          personal: false,
+          at: "2026-11-12T02:26:45.330Z"
+        },
+        {
+          id: 2,
+          title: "04:30 Sáng mai sẽ có bản cập nhật mới nha !!!",
+          body: "Thông tin cập nhật chi tiết mọi người theo dõi trên group FB nhé. Thanks all!",
+          link: "https://www.facebook.com/groups/1177262041630943",
+          personal: false,
+          at: "2026-11-11T16:26:04.675Z"
+        },
+        {
+          id: 1,
+          title: "Mới: Voice chat và 2v2 đấu bot cùng bạn bè 🎤",
+          body: "Vào phòng là nghe được nhau ngay, bấm nút mic cạnh nút chat để nói (2v2 chọn Everyone hoặc My team). Rủ bạn đấu 2 bot: Play vs bot → Mode → 2v2 → Copy invite link. Nên đeo tai nghe nhé!",
+          link: "/",
+          personal: false,
+          at: "2026-11-11T02:20:41.846Z"
+        }
+      ],
+      seen: null
+    }));
+    return;
+  }
+
+  
+  if (pathname === '/api/friends') {
+    const auth = req.headers.authorization;
+    const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const user = token && accounts.get(token) ? accounts.get(token) : null;
+    if (!user) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'not_signed_in' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ friends: [], pending: [] }));
+    return;
   }
 
   if (pathname === '/api/leaderboard') {
