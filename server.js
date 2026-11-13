@@ -319,6 +319,46 @@ const activeClients = new Set();
 const matchQueue = [];
 const activeRooms = new Map();
 
+
+function broadcastLobby(r) {
+  if (!r || !r.players) return;
+  const numSlots = (r.format === 'quads' || r.format === '4v4') ? 8 : (r.format === 'triples' || r.format === '3v3') ? 6 : (r.format === 'doubles' || r.format === 'coop') ? 4 : 2;
+  const slots = [];
+  for (let i = 0; i < numSlots; i++) {
+    const p = r.players[i];
+    if (p && p.readyState === 1) {
+      slots.push({
+        cid: p.cid,
+        name: (p.profile && p.profile.name) ? p.profile.name : ('Player ' + (i + 1)),
+        char: (p.profile && p.profile.char) ? p.profile.char : 'pomu',
+        bot: false,
+        voice: p.voiceOn ? (p.voiceMuted ? 'muted' : 'on') : false,
+        voiceTeam: !!p.voiceTeam
+      });
+    } else {
+      slots.push(null);
+    }
+  }
+
+  r.players.forEach((p, idx) => {
+    if (p && p.readyState === 1) {
+      p.send(JSON.stringify({
+        t: 'lobby',
+        lobby: {
+          code: r.code,
+          format: r.format,
+          venue: r.venue,
+          points: r.points,
+          host: 0,
+          you: idx,
+          playing: !!r.playing,
+          slots
+        }
+      }));
+    }
+  });
+}
+
 function broadcastRooms() {
   const roomList = [];
   const liveList = [];
@@ -364,6 +404,10 @@ wss.on('connection', (ws) => {
     ws._socket.setNoDelay(true);
   }
   activeClients.add(ws);
+  ws.cid = 'cid_' + Math.random().toString(36).substring(2, 10);
+  ws.voiceOn = false;
+  ws.voiceMuted = true;
+  ws.voiceTeam = false;
   ws.profile = { name: 'Kim Ngân', char: 'pomu' };
   ws.room = null;
   ws.seat = -1;
@@ -493,6 +537,7 @@ wss.on('connection', (ws) => {
             code,
             format
           }));
+          broadcastLobby(roomObj);
           broadcastRooms();
           break;
         }
@@ -514,6 +559,7 @@ wss.on('connection', (ws) => {
           r.players[emptySlot] = ws;
           ws.room = r;
           ws.seat = emptySlot;
+          broadcastLobby(r);
 
           const activeCount = r.players.filter(Boolean).length;
           const maxCount = (r.format === 'quads' || r.format === '4v4') ? 8 : (r.format === 'triples' || r.format === '3v3') ? 6 : (r.format === 'doubles' || r.format === 'coop') ? 4 : 2;
@@ -755,13 +801,23 @@ wss.on('connection', (ws) => {
         }
 
         case 'voice': {
+          ws.voiceOn = !!data.on;
+          ws.voiceMuted = data.muted !== false;
+          ws.voiceTeam = !!data.team;
+          if (ws.room) {
+            broadcastLobby(ws.room);
+          }
+          break;
+        }
+
+        case 'rtc': {
           if (ws.room && ws.room.players) {
             for (const p of ws.room.players) {
-              if (p && p !== ws && p.readyState === 1) {
+              if (p && p.cid === data.to && p.readyState === 1) {
                 p.send(JSON.stringify({
-                  t: 'voice',
-                  seat: ws.seat,
-                  signal: data.signal
+                  t: 'rtc',
+                  from: ws.cid,
+                  data: data.data
                 }));
               }
             }
