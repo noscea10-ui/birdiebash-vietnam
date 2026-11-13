@@ -339,7 +339,7 @@ function broadcastRooms() {
         venue: r.venue,
         points: r.points,
         players: r.players.filter(Boolean).length,
-        maxPlayers: r.format === 'doubles' ? 4 : 2
+        maxPlayers: (r.format === 'quads' || r.format === '4v4') ? 8 : (r.format === 'triples' || r.format === '3v3') ? 6 : (r.format === 'doubles' || r.format === 'coop') ? 4 : 2
       });
     }
   }
@@ -472,7 +472,7 @@ wss.on('connection', (ws) => {
         case 'party': {
           const code = Math.random().toString(36).substring(2, 6).toUpperCase();
           const format = data.format || 'singles';
-          const maxPlayers = format === 'quads' ? 8 : format === 'triples' ? 6 : format === 'doubles' ? 4 : 2;
+          const maxPlayers = (format === 'quads' || format === '4v4') ? 8 : (format === 'triples' || format === '3v3') ? 6 : (format === 'doubles' || format === 'coop') ? 4 : 2;
           const players = new Array(maxPlayers).fill(null);
           players[0] = ws;
 
@@ -516,7 +516,7 @@ wss.on('connection', (ws) => {
           ws.seat = emptySlot;
 
           const activeCount = r.players.filter(Boolean).length;
-          const maxCount = r.format === 'quads' ? 8 : r.format === 'triples' ? 6 : r.format === 'doubles' ? 4 : 2;
+          const maxCount = (r.format === 'quads' || r.format === '4v4') ? 8 : (r.format === 'triples' || r.format === '3v3') ? 6 : (r.format === 'doubles' || r.format === 'coop') ? 4 : 2;
 
           if (activeCount === maxCount || (r.format === 'singles' && activeCount >= 2)) {
             r.playing = true;
